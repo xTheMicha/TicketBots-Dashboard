@@ -1,3 +1,6 @@
+{#if modal}
+  <ExportModal {guildId} on:close={() => modal = false}/>
+{/if}
 <section class="sidebar">
     <header>
         <img src="{iconUrl}" class="guild-icon" alt="Guild icon" width="50" height="50" on:error={handleIconLoadError} />
@@ -24,7 +27,13 @@
             <ManageSidebarLink {currentRoute} title="Tickets" icon="fa-ticket-alt" href="/manage/{guildId}/tickets" />
             <ManageSidebarLink {currentRoute} title="Blacklist" icon="fa-ban" href="/manage/{guildId}/blacklist" />
             <ManageSidebarLink {currentRoute} title="Tags" icon="fa-tags" href="/manage/{guildId}/tags" />
+
+            {#if isAdmin}
+                <hr />
+                <Button on:click={() => modal = true} fill fullWidth=true>Export</Button>
+            {/if}
         </ul>
+        
     </nav>
     <nav class="bottom">
         <hr/>
@@ -95,6 +104,9 @@
     import ManageSidebarLink from "./ManageSidebarLink.svelte";
     import SubNavigation from "./SubNavigation.svelte";
     import SubNavigationLink from "./SubNavigationLink.svelte";
+    import Button from "../components/Button.svelte";
+    import ExportModal from "../components/manage/ExportModal.svelte";
+    let modal = false;
 
     export let currentRoute;
     export let permissionLevel;
