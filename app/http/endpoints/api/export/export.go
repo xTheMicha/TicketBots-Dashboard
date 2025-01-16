@@ -67,6 +67,7 @@ type (
 		Panels []int `json:"panels"`
 	}
 	Export struct {
+		GuildId     uint64       `json:"guild_id"`
 		Settings    Settings     `json:"settings"`
 		Panels      []Panel      `json:"panels"`
 		MultiPanels []MultiPanel `json:"multi_panels"`
@@ -315,6 +316,7 @@ func ExportHandler(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, Export{
+		GuildId:     guildId,
 		Settings:    settings,
 		Panels:      panels,
 		MultiPanels: multiPanelData,
