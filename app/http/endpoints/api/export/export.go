@@ -17,64 +17,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type (
-	AutoCloseData struct {
-		Enabled                 bool  `json:"enabled"`
-		SinceOpenWithNoResponse int64 `json:"since_open_with_no_response"`
-		SinceLastMessage        int64 `json:"since_last_message"`
-		OnUserLeave             bool  `json:"on_user_leave"`
-	}
-
-	Ticket struct {
-		TicketId    int           `json:"ticket_id"`
-		CloseReason *string       `json:"close_reason"`
-		ClosedBy    *uint64       `json:"closed_by"`
-		Rating      *uint8        `json:"rating"`
-		Transcript  v2.Transcript `json:"transcript"`
-	}
-
-	ColourMap map[customisation.Colour]utils.HexColour
-
-	Settings struct {
-		database.Settings
-		ClaimSettings     database.ClaimSettings     `json:"claim_settings"`
-		AutoCloseSettings AutoCloseData              `json:"auto_close"`
-		TicketPermissions database.TicketPermissions `json:"ticket_permissions"`
-		Colours           ColourMap                  `json:"colours"`
-
-		WelcomeMessage    string                `json:"welcome_message"`
-		TicketLimit       uint8                 `json:"ticket_limit"`
-		Category          uint64                `json:"category,string"`
-		ArchiveChannel    *uint64               `json:"archive_channel,string"`
-		NamingScheme      database.NamingScheme `json:"naming_scheme"`
-		UsersCanClose     bool                  `json:"users_can_close"`
-		CloseConfirmation bool                  `json:"close_confirmation"`
-		FeedbackEnabled   bool                  `json:"feedback_enabled"`
-		Language          *string               `json:"language"`
-	}
-	Panel struct {
-		database.Panel
-		WelcomeMessage               *types.CustomEmbed                `json:"welcome_message"`
-		UseCustomEmoji               bool                              `json:"use_custom_emoji"`
-		Emoji                        types.Emoji                       `json:"emote"`
-		Mentions                     []string                          `json:"mentions"`
-		Teams                        []int                             `json:"teams"`
-		UseServerDefaultNamingScheme bool                              `json:"use_server_default_naming_scheme"`
-		AccessControlList            []database.PanelAccessControlRule `json:"access_control_list"`
-	}
-	MultiPanel struct {
-		database.MultiPanel
-		Panels []int `json:"panels"`
-	}
-	Export struct {
-		GuildId     uint64       `json:"guild_id"`
-		Settings    Settings     `json:"settings"`
-		Panels      []Panel      `json:"panels"`
-		MultiPanels []MultiPanel `json:"multi_panels"`
-		Tickets     []Ticket     `json:"tickets"`
-	}
-)
-
 var activeColours = []customisation.Colour{customisation.Green, customisation.Red}
 
 func ExportHandler(ctx *gin.Context) {
@@ -315,13 +257,170 @@ func ExportHandler(ctx *gin.Context) {
 		return
 	}
 
+	var (
+		tags      []Tag
+		blacklist *Blacklist
+	)
+
+	itemGroup, _ := errgroup.WithContext(context.Background())
+
+	itemGroup.Go(func() (err error) {
+		tags, err = getTags(ctx, guildId)
+		return
+	})
+
+	itemGroup.Go(func() (err error) {
+		blacklist, err = getBlacklist(ctx, guildId)
+		return
+	})
+
+	if err := itemGroup.Wait(); err != nil {
+		ctx.JSON(500, utils.ErrorJson(err))
+		return
+	}
+
+	forms, err := getForms(ctx, guildId)
+	if err != nil {
+		ctx.JSON(500, utils.ErrorJson(err))
+		return
+	}
+
+	staffTeams, err := getStaffTeams(ctx, guildId)
+	if err != nil {
+		ctx.JSON(500, utils.ErrorJson(err))
+		return
+	}
+
 	ctx.JSON(200, Export{
 		GuildId:     guildId,
 		Settings:    settings,
 		Panels:      panels,
 		MultiPanels: multiPanelData,
 		Tickets:     tickets,
+		Tags:        tags,
+		Blacklist:   *blacklist,
+		Forms:       forms,
+		StaffTeams:  staffTeams,
 	})
+}
+
+func getStaffTeams(ctx *gin.Context, guildId uint64) ([]SupportTeam, error) {
+	dbTeams, err := dbclient.Client.SupportTeam.Get(ctx, guildId)
+	if err != nil {
+		return nil, err
+	}
+
+	// prevent serving null
+	if dbTeams == nil {
+		dbTeams = make([]database.SupportTeam, 0)
+	}
+
+	var teams []SupportTeam
+
+	for i := range dbTeams {
+		group, _ := errgroup.WithContext(context.Background())
+		i := i
+		team := dbTeams[i]
+		var (
+			users []uint64
+			roles []uint64
+		)
+
+		group.Go(func() error {
+			users, err = dbclient.Client.SupportTeamMembers.Get(ctx, team.Id)
+			return err
+		})
+
+		group.Go(func() error {
+			roles, err = dbclient.Client.SupportTeamRoles.Get(ctx, team.Id)
+			return err
+		})
+
+		if err := group.Wait(); err != nil {
+			return nil, err
+		}
+
+		teams = append(teams, SupportTeam{
+			Id:         team.Id,
+			Name:       team.Name,
+			OnCallRole: team.OnCallRole,
+			Users:      users,
+			Roles:      roles,
+		})
+	}
+
+	return teams, nil
+}
+
+func getForms(ctx *gin.Context, guildId uint64) ([]Form, error) {
+	dbForms, err := dbclient.Client.Forms.GetForms(ctx, guildId)
+	if err != nil {
+		return nil, err
+	}
+
+	dbFormInputs, err := dbclient.Client.FormInput.GetInputsForGuild(ctx, guildId)
+	if err != nil {
+		return nil, err
+	}
+
+	forms := make([]Form, len(dbForms))
+	for i, form := range dbForms {
+		formInputs, ok := dbFormInputs[form.Id]
+		if !ok {
+			formInputs = make([]database.FormInput, 0)
+		}
+
+		forms[i] = Form{
+			Form:   form,
+			Inputs: formInputs,
+		}
+	}
+	return forms, nil
+}
+
+func getBlacklist(ctx *gin.Context, guildId uint64) (*Blacklist, error) {
+	userBlacklist, err := dbclient.Client.Blacklist.GetBlacklistedUsers(ctx, guildId, 100000, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	roleBlacklist, err := dbclient.Client.RoleBlacklist.GetBlacklistedRoles(ctx, guildId)
+	if err != nil {
+		return nil, err
+	}
+	return &Blacklist{
+		Users: userBlacklist,
+		Roles: roleBlacklist,
+	}, nil
+}
+
+func getTags(ctx *gin.Context, guildId uint64) ([]Tag, error) {
+	dbTags, err := dbclient.Client.Tag.GetByGuild(ctx, guildId)
+	fmt.Println(len(dbTags))
+	if err != nil {
+		return nil, err
+	}
+
+	tags := make([]Tag, len(dbTags))
+
+	i := 0
+	for _, tag := range dbTags {
+		var embed *types.CustomEmbed
+		if tag.Embed != nil {
+			embed = types.NewCustomEmbed(tag.Embed.CustomEmbed, tag.Embed.Fields)
+		}
+
+		tags[i] = Tag{
+			Id:              tag.Id,
+			UseGuildCommand: tag.ApplicationCommandId != nil,
+			Content:         tag.Content,
+			UseEmbed:        tag.Embed != nil,
+			Embed:           embed,
+		}
+
+		i++
+	}
+	return tags, nil
 }
 
 func getSettings(ctx *gin.Context, guildId uint64) Settings {
