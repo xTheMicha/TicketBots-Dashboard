@@ -245,7 +245,7 @@
     const emojiNameMapper = (emoji) => `:${emoji.name}:`;
 
     function mentionNameMapper(role) {
-        if (role.id === "user" || role.id == 'here') {
+        if (role.id === "user" || role.id == 'here' || role.id == guildId) {
             return role.name;
         } else {
             return `@${role.name}`;
