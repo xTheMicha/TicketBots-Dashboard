@@ -245,7 +245,7 @@
     const emojiNameMapper = (emoji) => `:${emoji.name}:`;
 
     function mentionNameMapper(role) {
-        if (role.id === "user") {
+        if (role.id === "user" || role.id == 'here') {
             return role.name;
         } else {
             return `@${role.name}`;
@@ -274,7 +274,7 @@
     }
 
     function updateMentionValues() {
-        mentionItems = [{id: 'user', name: 'Ticket Opener'}, ...roles];
+        mentionItems = [{id: 'user', name: 'Ticket Opener'}, ...roles, {id: 'here', name: 'here'}];
     }
 
     function updateTeamsItems() {
