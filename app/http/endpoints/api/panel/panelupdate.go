@@ -6,20 +6,22 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/TicketsBot/GoPanel/app"
-	"github.com/TicketsBot/GoPanel/app/http/validation"
-	"github.com/TicketsBot/GoPanel/botcontext"
-	dbclient "github.com/TicketsBot/GoPanel/database"
-	"github.com/TicketsBot/GoPanel/rpc"
-	"github.com/TicketsBot/GoPanel/utils"
-	"github.com/TicketsBot/common/premium"
-	"github.com/TicketsBot/database"
+	"github.com/TicketsBot-cloud/common/premium"
+	"github.com/TicketsBot-cloud/dashboard/app"
+	"github.com/TicketsBot-cloud/dashboard/app/http/validation"
+	"github.com/TicketsBot-cloud/dashboard/botcontext"
+	dbclient "github.com/TicketsBot-cloud/dashboard/database"
+	"github.com/TicketsBot-cloud/dashboard/log"
+	"github.com/TicketsBot-cloud/dashboard/rpc"
+	"github.com/TicketsBot-cloud/dashboard/utils"
+	"github.com/TicketsBot-cloud/database"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v4"
 	"github.com/rxdn/gdl/objects/interaction/component"
 	"github.com/rxdn/gdl/rest"
 	"github.com/rxdn/gdl/rest/request"
+	"go.uber.org/zap"
 )
 
 func UpdatePanel(c *gin.Context) {
@@ -270,7 +272,7 @@ func UpdatePanel(c *gin.Context) {
 			return err
 		}
 
-		if err := dbclient.Client2.PanelHereMention.SetWithTx(c, tx, panel.PanelId, shouldMentionHere); err != nil {
+		if err := dbclient.Client.PanelHereMention.SetWithTx(c, tx, panel.PanelId, shouldMentionHere); err != nil {
 			return err
 		}
 
@@ -327,6 +329,8 @@ func UpdatePanel(c *gin.Context) {
 				if unwrapped.StatusCode == http.StatusForbidden {
 					c.JSON(400, utils.ErrorStr("I do not have permission to send messages in the specified channel"))
 				} else {
+					log.Logger.Error("Body", zap.Any("body", messageData))
+					log.Logger.Error("Error sending panel message", zap.Any("errs", unwrapped.ApiError.Errors))
 					c.JSON(400, utils.ErrorStr("Error sending panel message: "+unwrapped.ApiError.Message))
 				}
 			} else {

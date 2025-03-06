@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/TicketsBot/GoPanel/app"
-	dbclient "github.com/TicketsBot/GoPanel/database"
-	"github.com/TicketsBot/GoPanel/utils/types"
-	"github.com/TicketsBot/database"
+	"github.com/TicketsBot-cloud/dashboard/app"
+	dbclient "github.com/TicketsBot-cloud/dashboard/database"
+	"github.com/TicketsBot-cloud/dashboard/utils/types"
+	"github.com/TicketsBot-cloud/database"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
 )
@@ -68,7 +68,7 @@ func ListPanels(c *gin.Context) {
 			}
 
 			// get if we should mention @here
-			shouldHereMention, err := dbclient.Client2.PanelHereMention.ShouldMentionHere(c, p.PanelId)
+			shouldHereMention, err := dbclient.Client.PanelHereMention.ShouldMentionHere(c, p.PanelId)
 			if err != nil {
 				return err
 			}
