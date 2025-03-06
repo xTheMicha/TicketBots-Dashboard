@@ -274,7 +274,7 @@
     }
 
     function updateMentionValues() {
-        mentionItems = [{id: 'user', name: 'Ticket Opener'}, ...roles, {id: 'here', name: 'here'}];
+        mentionItems = [{id: 'user', name: 'Ticket Opener'}, {id: 'here', name: '@here'}, ...roles];
     }
 
     function updateTeamsItems() {
