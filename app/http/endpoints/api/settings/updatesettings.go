@@ -136,7 +136,7 @@ func (s *Settings) Validate(ctx context.Context, guildId uint64, premiumTier pre
 		return errors.New("Invalid colour")
 	}
 
-	for colour, _ := range s.Colours {
+	for colour := range s.Colours {
 		if !utils.Exists(activeColours, colour) {
 			return errors.New("Invalid colour")
 		}
