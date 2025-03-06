@@ -2,14 +2,15 @@ package api
 
 import (
 	"context"
+	"net/http"
+	"strconv"
+
 	"github.com/TicketsBot/GoPanel/app"
 	dbclient "github.com/TicketsBot/GoPanel/database"
 	"github.com/TicketsBot/GoPanel/utils/types"
 	"github.com/TicketsBot/database"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
-	"net/http"
-	"strconv"
 )
 
 func ListPanels(c *gin.Context) {
@@ -64,6 +65,16 @@ func ListPanels(c *gin.Context) {
 
 			if shouldMention {
 				mentions = append(mentions, "user")
+			}
+
+			// get if we should mention @here
+			shouldHereMention, err := dbclient.Client2.PanelHereMention.ShouldMentionHere(c, p.PanelId)
+			if err != nil {
+				return err
+			}
+
+			if shouldHereMention {
+				mentions = append(mentions, "here")
 			}
 
 			// get role mentions

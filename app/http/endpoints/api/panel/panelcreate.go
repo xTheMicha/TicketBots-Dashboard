@@ -3,6 +3,9 @@ package api
 import (
 	"context"
 	"errors"
+	"net/http"
+	"strconv"
+
 	"github.com/TicketsBot/GoPanel/app"
 	"github.com/TicketsBot/GoPanel/app/http/validation"
 	"github.com/TicketsBot/GoPanel/botcontext"
@@ -18,8 +21,6 @@ import (
 	"github.com/rxdn/gdl/objects/guild/emoji"
 	"github.com/rxdn/gdl/objects/interaction/component"
 	"github.com/rxdn/gdl/rest/request"
-	"net/http"
-	"strconv"
 )
 
 const freePanelLimit = 3
@@ -240,13 +241,15 @@ func CreatePanel(c *gin.Context) {
 	}
 
 	// insert role mention data
-	// string is role ID or "user" to mention the ticket opener
+	// string is role ID or "user" to mention the ticket opener or "here" to mention @here
 	validRoles := utils.ToSet(utils.Map(roles, utils.RoleToId))
 
 	var roleMentions []uint64
 	for _, mention := range data.Mentions {
 		if mention == "user" {
 			createOptions.ShouldMentionUser = true
+		} else if mention == "here" {
+			createOptions.ShouldMentionHere = true
 		} else {
 			roleId, err := strconv.ParseUint(mention, 10, 64)
 			if err != nil {
@@ -276,6 +279,7 @@ func CreatePanel(c *gin.Context) {
 
 type panelCreateOptions struct {
 	ShouldMentionUser  bool
+	ShouldMentionHere  bool
 	RoleMentions       []uint64
 	TeamIds            []int
 	AccessControlRules []database.PanelAccessControlRule
@@ -291,6 +295,10 @@ func storePanel(ctx context.Context, panel database.Panel, options panelCreateOp
 		}
 
 		if err := dbclient.Client.PanelUserMention.SetWithTx(ctx, tx, panelId, options.ShouldMentionUser); err != nil {
+			return err
+		}
+
+		if err := dbclient.Client2.PanelHereMention.SetWithTx(ctx, tx, panelId, options.ShouldMentionHere); err != nil {
 			return err
 		}
 
