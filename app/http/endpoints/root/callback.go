@@ -4,18 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/TicketsBot/GoPanel/app"
-	"github.com/TicketsBot/GoPanel/app/http/session"
-	"github.com/TicketsBot/GoPanel/config"
-	"github.com/TicketsBot/GoPanel/utils"
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt"
-	"github.com/rxdn/gdl/rest"
-	"github.com/rxdn/gdl/rest/request"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/TicketsBot-cloud/dashboard/app"
+	"github.com/TicketsBot-cloud/dashboard/app/http/session"
+	"github.com/TicketsBot-cloud/dashboard/config"
+	"github.com/TicketsBot-cloud/dashboard/utils"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
+	"github.com/rxdn/gdl/rest"
+	"github.com/rxdn/gdl/rest/request"
 )
 
 func CallbackHandler(c *gin.Context) {
@@ -61,7 +62,7 @@ func CallbackHandler(c *gin.Context) {
 		HasGuilds:    false,
 	}
 
-	var guilds []utils.GuildDto
+	guilds := make([]utils.GuildDto, 0)
 	if utils.Contains(scopes, "guilds") {
 		guilds, err = utils.LoadGuilds(c, res.AccessToken, currentUser.Id)
 		if err != nil {
@@ -98,9 +99,7 @@ func CallbackHandler(c *gin.Context) {
 			"avatar":   currentUser.Avatar,
 			"admin":    utils.Contains(config.Conf.Admins, currentUser.Id),
 		},
-	}
-	if len(guilds) > 0 {
-		resMap["guilds"] = guilds
+		"guilds": guilds,
 	}
 
 	c.JSON(http.StatusOK, resMap)
