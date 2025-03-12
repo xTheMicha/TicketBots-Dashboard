@@ -122,6 +122,11 @@ func PresignURL(ctx *gin.Context) {
 		return
 	}
 
+	if guild.OwnerId == userId {
+	ctx.JSON(403, utils.ErrorStr("The server owner cannot import %s", file_type))
+	return
+	}
+
 	// Presign URL
 	url, err := s3.S3Client.PresignHeader(ctx, "PUT", bucketName, fmt.Sprintf("%s/%d.zip", file_type, guildId), time.Minute*10, url.Values{}, http.Header{
 		"Content-Type": []string{fileContentType},
